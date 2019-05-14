@@ -8,30 +8,33 @@ def run(context):
     try:
         app = adsk.core.Application.get()
         ui  = app.userInterface
-
-        #
-        folderDiag = ui.createFolderDialog()
-        diagResult = folderDiag.showDialog()
-
-        if diagResult == 0:        
-            destDir = folderDiag.folder
+            
+        # Create a file dialog to specify output filename.
+        fileDialog = ui.createFileDialog()
+        fileDialog.isMultiSelectEnabled = False
+        fileDialog.title = "Specity filename"
+        fileDialog.filter = "csv (*.csv)"
+        fileDialog.initialFilename = "output.csv"
+        dialogResult = fileDialog.showSave()
+        if dialogResult == adsk.core.DialogResults.DialogOK:
+            filename = fileDialog.filename
         else:
-            print("error\n")
+            ui.messageBox('error"\n')
             return
 
-        # Get root rootComponent
+        # Get rootComponent
         product = app.activeProduct
         design = adsk.fusion.Design.cast(product)
         rootComp = design.rootComponent
 
-        # progress dialog
+        # Create progress dialog
         progressDialog = ui.createProgressDialog()
         progressDialog.cancelButtonText = "Cancel"
         progressDialog.isBackgroundTranslucent = False
         progressDialog.isCancelButtonShown = True
         progressDialog.isValid = True
 
-        #
+        # Count target occurrences
         occurrences = rootComp.occurrences
         progressDialog.show("counting objects...", \
                             "Counting target objects : %p %", 0, occurrences.count, 1)
@@ -46,14 +49,14 @@ def run(context):
         progressDialog.hide()
         progressDialog.reset()
 
-        #
+        # Printing Tree Structure
         ret = True
         progressDialog.show("printing tree structure...", \
                             "printing tree structure : %p %", 0, numtotaloccs, 1)
 
-        printcontent = ""
+        printcontent = rootComp.name + "," + "\n"
         for occ in occurrences:
-            ret = printLinkStructure( occ, progressDialog, None )
+            ret = printLinkStructure( occ, progressDialog, rootComp.name + "," )
             if ret == "DialogCancel":
                 progressDialog.reset()
                 progressDialog.hide()
@@ -62,8 +65,10 @@ def run(context):
         progressDialog.hide()
         progressDialog.reset()
 
-        with open( dest_dir+"\\output.csv", mode="w" ) as f:
+        with open( filename, mode="w" ) as f:
             f.write(printcontent)
+
+        ui.messageBox('succeed.\n')
 
     except:
         if ui:
@@ -86,13 +91,10 @@ def printLinkStructure( occurrence, progressDialog, preprint ):
     progressDialog.message = "printing tree structure of " + occurrence.name + "...." + "\n" + "progress : %p"
     progressDialog.progressValue += 1
 
-   # if occurrence.isReferencedComponent:
-   #    ret = occurrence.breakLink()
-
     printcontent = ""
     printcontentraw = ""
     if preprint == None:
-        printcontentraw = ""
+        printcontentraw = occurrence.name + ","
     else:
         printcontentraw = preprint + occurrence.name + ","
 
@@ -109,6 +111,6 @@ def printLinkStructure( occurrence, progressDialog, preprint ):
         if tempret == "DialogCancel":
             return "DialogCancel"
         else:
-            printcontent += tempret + "\n"
+            printcontent += tempret
 
     return printcontent
